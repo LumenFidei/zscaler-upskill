@@ -29,13 +29,18 @@ Zscaler Service Edge (ZEN)
      ├── DNS Control
      ├── Cloud Firewall
      ├── SSL Inspection
-     ├── URL Filtering
-     ├── Cloud App Control
+     ├── Cloud App Control  ← evaluated before URL Filtering
+     ├── URL Filtering      ← skipped if CloudApp already allowed
      └── DLP · Sandbox · Isolation
      │
      ▼
 Internet / SaaS
 ```
+
+> [!warning] Cloud App Control can override URL Filtering
+> Per Zscaler's own documentation, if a Cloud App Control rule **explicitly allows** a cloud application, the service applies **only** the Cloud App Control policy for that request — URL Filtering is not also evaluated. A URL Filtering rule blocking the same destination (e.g. `www.facebook.com`) does **not** take effect if Cloud App Control already issued an explicit allow for that app.
+>
+> **Consequence:** these two engines don't simply layer together the way a strict top-down model suggests. If a URL Filtering block "isn't working" for a specific cloud app, check for a Cloud App Control allow rule before assuming the URL Filtering rule itself is broken.
 
 ## Components
 
@@ -106,11 +111,11 @@ If a metric changes sharply at a point in time, check the **audit log** near tha
 
 # Security Services Summary
 
-## URL Filtering
-Site/category access. Actions: allow, block, caution, continue, isolate.
-
 ## Cloud App Control
-Actions *within* apps — upload, download, share, post. Tenant restriction.
+Actions *within* apps — upload, download, share, post. Tenant restriction. **Evaluated before URL Filtering** — an explicit allow here can bypass a URL Filtering block on the same destination entirely (see warning above).
+
+## URL Filtering
+Site/category access. Actions: allow, block, caution, continue, isolate. Not evaluated for a request if Cloud App Control already issued an explicit allow for that app.
 
 ## Cloud Firewall
 L3/L4 and network application control for non-web. Requires Tunnel 2.0 from ZCC.
@@ -151,6 +156,7 @@ Remote rendering for risky/uncategorized destinations. See [[Browser Isolation]]
 3. Category classification
 4. SSL inspection issue?
 5. Rule order
+6. **Cross-engine conflict** — if URL Filtering shows a block rule but the site still loads, check Cloud App Control for a conflicting explicit allow (see warning under Architecture)
 
 ## SSL Inspection Failure
 Root cert deployed and trusted? Pinned application needing exclusion?

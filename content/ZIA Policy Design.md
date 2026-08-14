@@ -45,11 +45,11 @@ Cloud Firewall  (L3/L4 — non-web included)
 SSL Inspection  (decrypt for the engines below)
    │
    ▼
-URL Filtering
+Cloud App Control  ← evaluated BEFORE URL Filtering
    │
    ▼
-Cloud App Control
-   │
+URL Filtering       ← SKIPPED if Cloud App Control already
+   │                  issued an explicit ALLOW for this app
    ▼
 Threat / Sandbox / DLP
    │
@@ -60,6 +60,11 @@ Final Action
 **Exam consequence:** if the Cloud Firewall blocks a port, URL Filtering never runs — adjusting URL policy won't fix it. Likewise, without SSL Inspection the engines below it see only the domain, not the full URL or payload.
 
 Within each engine: **top-down, first match wins.** Exceptions must sit above broader rules.
+
+> [!warning] Cloud App Control evaluates before URL Filtering — and can override it
+> Per Zscaler's own documentation, when a Cloud App Control rule **explicitly allows** a cloud application, the service applies **only** the Cloud App Control policy for that request — URL Filtering is not also evaluated. A URL Filtering rule blocking the same destination does not take effect if Cloud App Control already allowed the app.
+>
+> **This is a distinct trap from the general "first match wins" rule** — it isn't about rule order within one engine, it's about which *engine* gets skipped entirely. If a scenario describes a URL Filtering block that mysteriously isn't enforcing on a specific cloud app, the answer is very likely a Cloud App Control allow rule sitting upstream of it, not a problem with the URL Filtering rule itself.
 
 ---
 
@@ -91,6 +96,8 @@ Requirement is "allow the app but restrict what they do"
 **Exam trap:** "allow users to view corporate Box but prevent uploading personal files" is *not* a URL Filtering answer. URL Filtering only decides whether Box is reachable. The upload restriction is Cloud App Control.
 
 **Tenant restriction** — allowing a corporate SaaS tenant while blocking personal tenants of the same app — is also Cloud App Control territory, not URL Filtering.
+
+**When combining both ("allow the app but restrict what they do")**, the practical build order matters: Cloud App Control's allow is what lets the request through the engine that runs first, and its action-level rules (block upload, allow view) do the restricting. URL Filtering in this combination is mostly redundant once Cloud App Control has already allowed the app — don't rely on a URL Filtering block as a safety net for the same destination, since it may never be evaluated.
 
 ## URL Filtering Actions
 
