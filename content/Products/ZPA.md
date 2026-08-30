@@ -121,18 +121,15 @@ Access Policy can match on client type — useful for "contractors get browser-o
 ## Browser Access
 Requires certificate configuration for the published application. Limitations: application compatibility, web apps only. The answer when onboarding third parties without deploying a client.
 
+**Onboarding a guest/external user (e.g. an Entra ID guest) to Browser Access or PRA has a known, non-obvious configuration requirement** — ZPA's IdP settings need "Use with Arbitrary Domains" enabled, plus a matching pair of attribute-mapping changes on the Entra ID side. Full mechanics in [[Identity Providers]].
+
 ---
 
 # Privileged Remote Access (PRA)
 
-For administrative access to servers and infrastructure:
+Clientless, browser-based, audited access to administrative infrastructure (RDP/SSH/VNC), with session recording, clipboard/file transfer controls, and credential injection, controlled via **Privileged Capabilities** policy.
 
-- RDP / SSH / VNC through the browser, no client
-- **Session recording**
-- Clipboard and file transfer controls
-- Credential injection (admin never sees the password)
-
-Controlled via **Privileged Capabilities** policy. If a scenario requires auditing or recording admin sessions, PRA is the answer.
+Full detail — including the specific guest-user Entra ID configuration case — now lives in its own note: [[PRA]].
 
 ---
 
@@ -153,7 +150,7 @@ Blueprint: interpret a ZPA dashboard for service health, usage trends, security 
 
 # Troubleshooting Private App Access
 
-Blueprint objective (15% domain). Work the hierarchy:
+Blueprint objective (15% domain). Work the hierarchy — but note the hierarchy below assumes the user already **authenticated successfully**. A guest/external user hitting a generic `401: Authentication Failed` never reaches this hierarchy at all — that's a domain-based IdP selection problem, not a segment/policy/connector problem. See [[Identity Providers]] before working the flow below if the symptom is an auth failure rather than a denial or timeout.
 
 ```text
 Is the app in an Application Segment?     → No: publish it
@@ -194,3 +191,5 @@ Check **ZPA user activity logs** to see the actual decision and matching rule ra
 - [[Device Posture]]
 - [[Migration from VPN to ZPA]]
 - [[Logging and Reporting]]
+- [[PRA]]
+- [[Identity Providers]]

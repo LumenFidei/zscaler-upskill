@@ -98,6 +98,9 @@ Supports the same OneAPI authentication as the providers, with legacy-framework 
 
 Zscaler maintains an official OneAPI documentation/collection on the Postman API Network — useful for interactively exploring endpoints and testing calls before writing automation code against them.
 
+> [!warning] Don't conflate this with the legacy ZCC Mobile Admin Portal API
+> There's a separate, older Postman-based pattern specifically for querying **ZCC device enrollment state** (registered/removed/quarantined devices) via the ZCC Mobile Admin Portal's own public API. That API authenticates with a legacy `apiKey`/`secretKey` pair and returns a JWT — it does **not** use OneAPI's OAuth2/ZIdentity model at all. If you're setting up Postman for device-fleet auditing specifically, you're working with this legacy API, not the OneAPI collection referenced above. Full mechanics in [[ZCC]].
+
 ---
 
 # A Community Tool Worth Knowing — And Distinguishing From the Official SDK

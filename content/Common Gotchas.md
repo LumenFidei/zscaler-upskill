@@ -200,6 +200,95 @@ Recurring but less technical complaints worth being aware of when scoping a depl
 
 ---
 
+# Device Posture Configuration Asymmetries
+
+Distinct from the platform gotchas above — these come from official Zscaler Client Connector posture-profile documentation, not community reports, but they're exactly the kind of "looks the same across platforms but isn't" trap that causes real deployment friction.
+
+## File Path Silently Disappears on Multi-Platform Profiles
+
+**The Problem:** the File Path posture check is only available when a posture profile targets a **single** platform. Add a second platform to the same profile, and File Path is no longer offered as an option at all — no error, it's simply absent from the dropdown.
+
+**Fix/Workaround:** use Certificate Trust instead for any profile spanning multiple platforms. If File Path logic is specifically required, keep it in separate single-platform profiles rather than trying to consolidate.
+
+## Registry Key Check Runs as the User, Not the System
+
+**The Problem:** the Registry Key posture check executes in the **user's** security context. If your permission model restricts standard users from reading system-level keys (commonly under `HKLM`), the check fails — not because posture is actually non-compliant, but because the user account literally can't read the key path being checked.
+
+**Fix/Workaround:** create the registry key somewhere the user's own context can access, rather than assuming any admin-readable key is equally checkable.
+
+## Antivirus Detection Requires Different Input on macOS vs. Windows
+
+**The Problem:** on Windows, the AV Name field for Detect Antivirus is optional — leaving it blank makes ZCC detect *any* running antivirus. On **macOS, AV Name is mandatory**, and must include the system extension name specifically. A profile built and tested on Windows first, then casually extended to macOS, will fail silently if this asymmetry isn't accounted for.
+
+**Fix/Workaround:** on macOS, use the `systemextensionsctl` command-line tool to find the exact extension name required, and always populate AV Name explicitly — never assume the Windows "blank = any AV" behavior carries over.
+
+## Jamf Daemon Survives MDM Unenrollment
+
+**The Problem:** removing an MDM profile from a macOS device does not guarantee the Jamf daemon actually stops running. A device that appears "unenrolled" can continue reporting Jamf posture data, which can produce confusing results in Jamf Detection or Jamf Risk Level checks.
+
+**Fix/Workaround:** add the command `sudo jamf -removeFramework` to Jamf Pro's unenrollment process to fully remove the daemon — this is a required extra step, not automatic.
+
+## Client Certificate Posture Is Being Deprecated on Android
+
+**The Problem:** as of Zscaler Client Connector version 5.0, Client Certificate posture support is ending for **all Android devices**. A design that currently relies on certificate-based posture for a mixed-platform mobile fleet will need an alternative for Android once that version rolls out.
+
+**Fix/Workaround:** plan an alternate Android posture strategy (e.g. Certificate Trust, Ownership Variable, or Unauthorized Modification checks) ahead of the version 5.0 transition rather than discovering the gap after the fact.
+
+> [!important] ZDTE tie-in
+> **Implementation and Deployment (22%)** — device posture profile configuration is squarely a deployment-task domain, and these asymmetries are exactly the kind of platform-specific detail that separates "configured" from "correctly configured." A scenario describing a posture check that "works on Windows but not Mac" (or vice versa) for one of these five specific checks has a documented, specific cause — not a generic troubleshooting exercise.
+>
+> Full posture check catalogue with all platform/version detail lives in [[Device Posture]] — this section only covers the failure-mode summary.
+
+---
+
+# Location-Based Policy Ruleset Gotchas
+
+From official ZCC documentation on Location-Based Policies (Windows, ZCC 4.8+) — a newer, more granular feature than the plain App Profile split tunnel, and one with several non-obvious constraints.
+
+## CSV Upload Replaces, It Doesn't Merge
+
+**The Problem:** uploading a CSV to a Traffic Steering IP List **replaces the entire list** rather than adding to it. Uploading a file meant to "add a few more IPs" silently deletes every entry not included in that specific upload.
+
+**Fix/Workaround:** always export the current list first if you intend to add to it, edit the exported file, then re-upload the combined result — never upload a partial addition assuming it merges.
+
+## Traffic Steering IP Lists Can't Be Used Directly in an App Profile
+
+**The Problem:** a Traffic Steering IP List can only be referenced from inside a **ruleset** — there's no way to assign one directly to an App Profile.
+
+**Fix/Workaround:** if a design calls for referencing an IP list from an App Profile, it has to be routed through a ruleset first; there's no shortcut around this layer.
+
+## Outbound Default Must Be "Firewall Allow" If Any Outbound Rules Exist
+
+**The Problem:** if a ruleset defines any explicit outbound firewall rules, leaving the Default Outbound Firewall Rule at "None" is not a valid combination — it must be set to Firewall Allow.
+
+**Fix/Workaround:** whenever outbound rules are added to a ruleset, immediately check and update the default action in the same change — don't treat it as a separate, optional step.
+
+## A Locked-Down Outbound Default Can Silently Block IdP Traffic
+
+**The Problem:** if the host's own default outbound firewall posture is deny, and nothing explicitly permits outbound traffic to the identity provider, SAML authentication fails — and the symptom looks exactly like an IdP misconfiguration rather than a local firewall problem.
+
+**Fix/Workaround:** when troubleshooting authentication failures on a device with a custom, deny-by-default outbound firewall stance, confirm outbound access to the IdP specifically before spending time on IdP-side configuration.
+
+> [!important] ZDTE tie-in
+> **Troubleshooting and Support (15%)** — this is a clean example of the localization skill in [[Troubleshooting Methodology]]: an authentication failure with an IdP-shaped symptom that actually originates one layer down, in the endpoint firewall. Recognizing that "looks like an IdP problem" and "is actually an IdP problem" aren't the same thing is the tested skill.
+
+---
+
+# ZPA Wildcard Segment Precedence Gotcha
+
+From official ZPA documentation on Application Discovery — arguably the single most consequential "looks fine, silently isn't" gotcha in this entire vault, because it breaks policy coverage with no error message anywhere.
+
+**The Problem:** ZPA always evaluates access policy against the **most specific** matching application segment — never the broadest one. If a wildcard segment (`*.exapp.company.com`) is covered by an Access Policy, and someone later defines a **more specific** segment (`file.exapp.company.com`) — including via the "define a discovered application" workflow — that specific segment is **not** covered by the original policy, even though the wildcard would still technically match its hostname.
+
+A closely related gotcha: **ports don't inherit** from a broad segment down to a more specific one that also matches — the specific segment needs its own explicit port configuration.
+
+**Fix/Workaround:** treat "define a specific segment out of a wildcard's territory" as a two-part change every time — the new segment, **and** a new Access Policy rule for it — rather than assuming the wildcard's existing policy still has it covered.
+
+> [!important] ZDTE tie-in
+> **Architecture and Design (22%)** and **Troubleshooting and Support (15%)** both touch this. On the design side, it's a direct argument for the vault's existing "specific segments over broad wildcards" guidance in [[Application Segments]] — every wildcard is a future landmine the moment someone defines a more specific segment near it. On the troubleshooting side: "access worked yesterday, broke today with no policy change" is exactly the symptom this gotcha produces, since the *policy* didn't change — a new segment silently redirected which rule applies.
+
+---
+
 # Related Notes
 
 - [[SSL Inspection]]
@@ -209,4 +298,7 @@ Recurring but less technical complaints worth being aware of when scoping a depl
 - [[ZIA]]
 - [[DLP]]
 - [[PAC Files]]
+- [[Device Posture]]
+- [[Application Segments]]
+- [[Identity Providers]]
 - [[Troubleshooting Methodology]]

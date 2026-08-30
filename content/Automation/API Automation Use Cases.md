@@ -134,7 +134,35 @@ This is the same underlying OneAPI authentication and RBAC model described in [[
 
 ---
 
-# Design Principle Across All Five
+# Use Case 6: Scheduled Device Fleet Auditing (Legacy API)
+
+## The Manual Version
+
+Someone logs into the ZCC Mobile Admin Portal periodically to check how many devices are enrolled, registered, quarantined, or pending removal — for a compliance report, an audit, or just general fleet visibility.
+
+## The Automated Version
+
+```text
+Scheduled job (e.g. weekly)
+        │
+        ▼
+Authenticate to ZCC Mobile Admin Portal API
+   (apiKey/secretKey → JWT)
+        │
+        ▼
+Fetch device list, filtered by registration state
+        │
+        ▼
+Feed into a report, dashboard, or ticketing system
+```
+
+**Why this matters:** device fleet state (how many devices are quarantined, how many are stuck in "removal pending") is exactly the kind of recurring, low-drama check that's easy to let slip when it depends on someone remembering to log in manually. Automating the pull removes that dependency.
+
+**Worth flagging explicitly:** unlike Use Cases 1–5, this one runs on the **legacy** `apiKey`/`secretKey` API, not OneAPI — there's no unified OAuth2/ZIdentity credential covering this specific endpoint. See [[ZCC]] for the full authentication flow and the registration-state filter values, and [[Zscaler SDKs and Tooling]] for the distinction from the OneAPI Postman collection.
+
+---
+
+# Design Principle Across All Six
 
 Every pattern above shares the same shape:
 
@@ -150,6 +178,8 @@ Change applied without manual console interaction
 
 The automation is only as safe as the RBAC scope behind it — see the least-privilege guidance in [[ZIdentity]] before building any of these patterns. A broadly-scoped automation credential is a single point of failure with more blast radius than the manual process it replaced.
 
+**Use Case 6 is the exception to "scoped via ZIdentity RBAC"** — its legacy `apiKey`/`secretKey` credential isn't governed by the same OneAPI RBAC model as the other five. Treat that credential with equivalent care regardless — a leaked device-audit key exposing your entire enrolled-device inventory is still a real exposure, just through a different mechanism than ZIdentity scoping.
+
 ---
 
 # Related Notes
@@ -161,3 +191,4 @@ The automation is only as safe as the RBAC scope behind it — see the least-pri
 - [[Access Policies]]
 - [[Zero Trust]]
 - [[Troubleshooting Methodology]]
+- [[ZCC]]

@@ -134,6 +134,16 @@ Settings that matter in scenarios:
 
 **Machine Tunnel** is worth knowing: it establishes connectivity before user logon, used for domain-joined boot-time operations and patching. It authenticates the *device*, not a user.
 
+## Automatic Username Population and Device Registration (App Supportability)
+
+Configured at **Infrastructure → Connectors → Client → App Supportability**:
+
+- **Automatically Populate Username for IdP Authentication** — autofills the IdP login form via JavaScript, or via the `login_hint` SAML attribute (sent to both ZIA and ZPA). If both are enabled, `login_hint` wins.
+- **Username Format** (login_hint only, ZCC 4.9+ Windows) — SAM Account Name vs. User Principal Name (UPN); UPN falls back to SAM Account Name on non-domain-joined devices.
+- **Register device with ZPA IdP Username** — registers the device using the ZPA-authentication username rather than the enrollment username.
+
+Full reasoning for *why* these matter — including the Entra ID guest-user scenario they directly address — lives in [[Identity Providers]].
+
 ---
 
 # Split Tunnel
@@ -162,6 +172,48 @@ Available from the client:
 
 ---
 
+# Programmatic Device Enrollment Queries (Legacy Mobile Admin Portal API)
+
+Beyond client-side diagnostics, enrolled device state can be queried programmatically via the **ZCC Mobile Admin Portal's public API** — useful for auditing, compliance reporting, or feeding device state into other automation without logging into the console directly.
+
+> [!note] Source and framework distinction
+> Based on a Zscaler community-contributed guide (community.zscaler.com), not official product documentation — treat as field-tested rather than vendor-guaranteed. More importantly: this API uses **`apiKey`/`secretKey`** authentication, which is the **legacy** framework, not [[OneAPI]]'s OAuth2/ZIdentity model. Don't assume the OneAPI credential pattern (`client_id`/`client_secret`/`vanity_domain`/`cloud`) applies here — this is a separate, ZCC Mobile Admin Portal–specific API surface.
+
+## Authentication Flow
+
+```text
+POST request with:
+{
+  "apiKey": "string",
+  "secretKey": "string"
+}
+        │
+        ▼
+JWT (JSON Web Token) returned
+        │
+        ▼
+JWT used to authorize subsequent device-list requests
+```
+
+## Fetching the Device List
+
+The device list endpoint supports filtering by **registration type/state** via a `registrationTypes` parameter:
+
+|Value|State|
+|---|---|
+|0|All states except Removed|
+|1|Registered|
+|3|Removal pending|
+|4|Unregistered|
+|5|Removed|
+|6|Quarantined|
+
+For a report of "everything currently relevant" (i.e. excluding devices already fully removed), `registrationTypes: 0` is the value to use — this is the pattern the source guide itself demonstrates.
+
+**Common use case:** a scheduled Postman or scripted job pulling device state periodically for a compliance/audit report, without a human manually exporting from the console each time. See [[API Automation Use Cases]] for the same trigger → automated call → result pattern applied elsewhere, though note this specific example runs on the legacy API, not OneAPI.
+
+---
+
 # Troubleshooting
 
 ## Client Not Forwarding
@@ -177,6 +229,9 @@ Tunnel 1.0 in use — needs Tunnel 2.0.
 ## Wrong Policy Applied
 App Profile ordering or group membership.
 
+## Device Enrollment API Returns Auth Error
+Confirm you're using the legacy `apiKey`/`secretKey` pair for the Mobile Admin Portal specifically — this is a different credential from any OneAPI/ZIdentity client registered for ZIA/ZPA automation. The two are not interchangeable.
+
 ---
 
 # Related Notes
@@ -187,3 +242,5 @@ App Profile ordering or group membership.
 - [[Trusted Network Detection]]
 - [[Device Posture]]
 - [[Authentication]]
+- [[OneAPI]]
+- [[API Automation Use Cases]]

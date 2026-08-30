@@ -51,6 +51,10 @@ App Profiles are typically assigned based on group membership, OU, or device pla
 
 Determines how traffic is routed (Tunnel 2.0, PAC, VPN-based, etc.). See [[Tunnel 2.0]].
 
+## Location-Based Policy Ruleset (Windows, ZCC 4.8+)
+
+App Profiles can reference a **Location-Based Policy ruleset** via the profile's Location Policies tab, applied per network type (On-Trusted / Off-Trusted). This is a more granular layer than the plain Forwarding Profile — it adds endpoint firewall rules (inbound/outbound, with rule-order precedence) on top of traffic steering. Full mechanics in [[Traffic Forwarding]].
+
 ## Trusted Network Detection Settings
 
 Defines how ZCC detects trusted/corporate networks. See [[Trusted Network Detection]].
@@ -60,6 +64,7 @@ Defines how ZCC detects trusted/corporate networks. See [[Trusted Network Detect
 - Automatic vs. interactive login
 - Reauthentication interval
 - MFA enforcement
+- **Automatic username population for IdP authentication** (JavaScript-based autofill, or the `login_hint` SAML attribute) and **Register device with ZPA IdP Username** — see [[Identity Providers]] for why these matter and [[ZCC]] for the exact toggles
 
 ## UI Controls
 

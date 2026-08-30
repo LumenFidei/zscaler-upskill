@@ -7,7 +7,7 @@ configuration:
   analytics:
     provider: plausible
   locale: en-US
-  baseUrl: decassid.github.io/zscaler-upskill
+  baseUrl: lumenfidei.github.io/zscaler-upskill
   ignorePatterns:
     - private
     - templates
@@ -272,9 +272,9 @@ plugins:
       priority: 15
       display: all
   - source: "@quartz-community/obsidian-plugin-excalidraw"
-    enabled: true
+    enabled: false
     options:
-      enableInteraction: true
+      enableInteraction: false
       darkMode: auto
       exportPadding: 20
     order: 50
