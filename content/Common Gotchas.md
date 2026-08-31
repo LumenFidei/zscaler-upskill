@@ -289,6 +289,31 @@ A closely related gotcha: **ports don't inherit** from a broad segment down to a
 
 ---
 
+# App Connector Manager Update Gotchas
+
+> [!note] Source caveat
+> Drawn from an unattributed technical Q&A document — no Zscaler branding or named contributor identified. Full detail and caveat in [[App Connectors]]. Treat as plausible operational knowledge, not confirmed vendor documentation.
+
+## Disabling Automated Manager Updates Doesn't Version-Lock the Package
+
+**The Problem:** turning off ZPA's automated Manager-update mechanism feels like it should freeze the `zpa-connector` package version for change-control purposes. It doesn't. Your organization's own RHEL patching process (`dnf update`, `yum update -y`) can still update `zpa-connector` independently, provided the Zscaler repository is enabled and a newer package is available.
+
+**Fix/Workaround:** if strict version control over the Manager package matters, verify it explicitly as part of every patch cycle (`dnf check-update zpa-connector`) rather than assuming disabling Zscaler's automation is sufficient on its own.
+
+## Manager Update, Software Update, and Connector Status Fail Independently
+
+**The Problem:** these are three separately-tracked states. A failed or stale Manager Update does not mean the connector itself is offline — Connector Status can be perfectly healthy while the Manager sits behind on updates. Conversely, don't assume a healthy Connector Status means the Manager is current.
+
+**Fix/Workaround:** check all three explicitly rather than inferring one from another. A stuck Manager should still be fixed even when nothing else looks wrong, since it blocks all future connector software upgrades.
+
+## Deleting Cached Runtime Files Triggers a Full Re-Download
+
+**The Problem:** generic configuration-management, backup-restore, or vulnerability-remediation tooling that isn't aware of what it's touching can delete files under `/opt/zscaler/var/` (e.g. `image.bin`, `version`, `metadata`), causing the Manager to treat this as a fresh-install condition and re-download the App Connector software from ZPA's cloud.
+
+**Fix/Workaround:** explicitly exclude `/opt/zscaler/var/` from generic automation. If unsure whether an existing tool touches it, check before assuming it's safe.
+
+---
+
 # Related Notes
 
 - [[SSL Inspection]]
@@ -301,4 +326,5 @@ A closely related gotcha: **ports don't inherit** from a broad segment down to a
 - [[Device Posture]]
 - [[Application Segments]]
 - [[Identity Providers]]
+- [[App Connectors]]
 - [[Troubleshooting Methodology]]
